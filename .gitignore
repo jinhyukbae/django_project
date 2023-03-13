@@ -112,6 +112,7 @@ venv.bak/
 
 # python
 .idea/
+migrations/
 
 # Spyder project settings
 .spyderproject
