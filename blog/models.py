@@ -1,8 +1,10 @@
 from django.db import models
+import os
 
 # Create your models here.
 class Post(models.Model):
     title = models.CharField(max_length=30)
+    hook_text = models.CharField(max_length=100, blank=True)
     content = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -17,3 +19,9 @@ class Post(models.Model):
 
     def get_absolute_url(self):
         return f'/blog/{self.pk}/' # localhost8000/blog/1 2 3 ...
+
+    def get_file_name(self):
+        return os.path.basename(self.file_upload.name)
+
+    def get_file_ext(self):
+        return self.get_file_name().split('.')[-1] # hi.csv hi.excel처럼 .을 구분해서 자름 hi csv처럼 그리고 -1로 제일 뒤에거 가져오기 csv,excel
