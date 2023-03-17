@@ -14,7 +14,8 @@ class TestView(TestCase):
         self.assertIn('About Me', navbar.text)
         self.assertIn('Home', navbar.text)
 
-        logo_btn = navbar.find('a', text='Blog') # a태그중에 텍스트가 blog 인거
+        logo_btn = navbar.find('a', text='Blog') # a태그중에 텍스트
+        # 가 blog 인거
         self.assertEqual(logo_btn.attrs['href'], '/') # attribute 속성이 href 인거 본문은 ./index.html 이므로 false 가 뜸
         home_btn = navbar.find('a', text='Home')
         self.assertEqual(home_btn.attrs['href'], '/')
