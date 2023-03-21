@@ -1,71 +1,55 @@
-from django.shortcuts import render, redirect #   redirect url을 재지정 해줌
-from .models import Post, Category, Tag
-from django.views.generic import ListView, DetailView, CreateView,UpdateView
+from django.shortcuts import render, redirect, get_object_or_404
+from django.views.generic import ListView, DetailView, CreateView, UpdateView
+from .models import Post, Category, Tag, Comment
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.utils.text import slugify
 from django.core.exceptions import PermissionDenied
+from .forms import CommentForm
+from django.db.models import Q
 
-class PostList(ListView): #LISTVIEW 블로그 글 리스트 보기 장고 내장 함수
+
+
+
+# Create your views here.
+class PostList(ListView):
     model = Post
     ordering = '-pk'
+    paginate_by = 5
+    # template_name = 'blog/post_list.html'
 
     def get_context_data(self, **kwargs):
         context = super(PostList, self).get_context_data()
         context['categories'] = Category.objects.all()
         context['no_category_post_count'] = Post.objects.filter(category=None).count()
         return context
-    # template_name = 'blog/index.html'
 
-# Create your views here.
-# def index(request):
-#     posts = Post.objects.all().order_by('-pk') # Post.objects.all() post안에 모든 (객체)내용을 가져옴
-#     # Post.objects.all().order_by('-pk') -pk 프라이머리 키 (id)의 역순으로 정렬
-#     return render(
-#         request,
-#         'blog/index.html',
-#         {
-#             'posts': posts,
-#         }
-#     )
-
-class PostDetail(DetailView): # DetailView 상세보기 장고 내장 함수
+class PostDetail(DetailView):
     model = Post
 
     def get_context_data(self, **kwargs):
         context = super(PostDetail, self).get_context_data()
         context['categories'] = Category.objects.all()
         context['no_category_post_count'] = Post.objects.filter(category=None).count()
+        context['comment_form'] = CommentForm
         return context
 
-# def single_post_page(request, pk):
-#     post = Post.objects.get(pk=pk)
-#
-#     return render(
-#         request,
-#         'blog/single_post_page.html',
-#         {
-#             'post': post,
-#         }
-#     )
 
-class PostCreate(LoginRequiredMixin,UserPassesTestMixin,CreateView):
+class PostCreate(LoginRequiredMixin, UserPassesTestMixin, CreateView):
     model = Post
-    fields = ['title','hook_text','content','head_image','file_upload','category']
+    fields = ['title', 'hook_text', 'content', 'head_image', 'file_upload', 'category']
 
     def test_func(self):
         return self.request.user.is_superuser or self.request.user.is_staff
 
     def form_valid(self, form):
-        current_user = self.request.user # 글 작성(request)하는 유저 표기
+        current_user = self.request.user
         if current_user.is_authenticated and (current_user.is_staff or current_user.is_superuser):
-            # authenticated 인증된 사용자냐? true false staff권한 or superuser 권한
-            form.instance.author = current_user # form 객체에 작성자로 넣겠다
+            form.instance.author = current_user
             response = super(PostCreate, self).form_valid(form)
 
-            tags_str = self.request.POST.get('tags_str') # 수정 요청(request)을 post 방식으로
-            # #post_form에 tags_str id 태그 요소인 애들 가져옴
+            tags_str = self.request.POST.get('tags_str')
             if tags_str:
-                tags_str = tags_str.strip() # 한칸씩 띄면서 쓰인 것들을 잘라서 가져옴 가져옴 #감자 #고구마 #배우
+                tags_str = tags_str.strip()
 
                 tags_str = tags_str.replace(',', ';')
                 tags_list = tags_str.split(';')
@@ -73,7 +57,6 @@ class PostCreate(LoginRequiredMixin,UserPassesTestMixin,CreateView):
                 for t in tags_list:
                     t = t.strip()
                     tag, is_tag_created = Tag.objects.get_or_create(name=t)
-                    # 태그랑 태그 생성여부 리턴
                     if is_tag_created:
                         tag.slug = slugify(t, allow_unicode=True)
                         tag.save()
@@ -82,42 +65,40 @@ class PostCreate(LoginRequiredMixin,UserPassesTestMixin,CreateView):
             return response
 
         else:
-            return redirect('/blog/')
-
+                return redirect('/blog/')
 
 
 class PostUpdate(LoginRequiredMixin, UpdateView):
     model = Post
-    fields = ['title','hook_text','content','head_image','file_upload', 'category']
+    fields = ['title', 'hook_text', 'content', 'head_image', 'file_upload', 'category']
 
     template_name = 'blog/post_update_form.html'
 
     def get_context_data(self, **kwargs):
         context = super(PostUpdate, self).get_context_data()
-        if self.object.tags.exists(): #object 태그가 존재하면
-            tags_str_list = list() # 태그가 담길 리스트를 생성
+        if self.object.tags.exists():
+            tags_str_list = list()
             for t in self.object.tags.all():
-                tags_str_list.append(t.name) # 차례차례로 바인드
+                tags_str_list.append(t.name)
             context['tags_str_default'] = '; '.join(tags_str_list)
         return context
 
     def dispatch(self, request, *args, **kwargs):
         if request.user.is_authenticated and request.user == self.get_object().author:
-            # 로그인된 상태 and request.user가 작성자냐 ==
-            return super(PostUpdate, self).dispatch(request, *args, **kwargs) # dispatch get이냐 post냐를 구분
-        # postupdate를 할 수 있는 권한 부여
+            return super(PostUpdate, self).dispatch(request, *args, **kwargs)
         else:
-            # 아니면 permissiondenied
             raise PermissionDenied
 
     def form_valid(self, form):
         response = super(PostUpdate, self).form_valid(form)
         self.object.tags.clear()
+
         tags_str = self.request.POST.get('tags_str')
         if tags_str:
             tags_str = tags_str.strip()
             tags_str = tags_str.replace(',', ';')
             tags_list = tags_str.split(';')
+
             for t in tags_list:
                 t = t.strip()
                 tag, is_tag_created = Tag.objects.get_or_create(name=t)
@@ -125,7 +106,9 @@ class PostUpdate(LoginRequiredMixin, UpdateView):
                     tag.slug = slugify(t, allow_unicode=True)
                     tag.save()
                 self.object.tags.add(tag)
+
         return response
+
 
 def category_page(request, slug):
     if slug == 'no_category':
@@ -134,6 +117,7 @@ def category_page(request, slug):
     else:
         category = Category.objects.get(slug=slug)
         post_list = Post.objects.filter(category=category)
+
     return render(
         request,
         'blog/post_list.html',
@@ -146,10 +130,10 @@ def category_page(request, slug):
     )
 
 def tag_page(request, slug):
-        tag = Tag.objects.get(slug=slug)
-        post_list = tag.post_set.all()
+    tag = Tag.objects.get(slug=slug)
+    post_list = tag.post_set.all()
 
-        return render(
+    return render(
         request,
         'blog/post_list.html',
         {
@@ -158,3 +142,81 @@ def tag_page(request, slug):
             'no_category_post_count': Post.objects.filter(category=None).count(),
         }
     )
+
+class CommentUpdate(LoginRequiredMixin, UpdateView):
+    model = Comment
+    form_class = CommentForm
+
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated and request.user == self.get_object().author:
+            return super(CommentUpdate, self).dispatch(request, *args, **kwargs)
+        else:
+            raise PermissionDenied
+
+def new_comment(request, pk):
+    if request.user.is_authenticated: # 상세페이지 코멘트 기능을 이용안하고 url로 접속해서 할려하면 에러 표시
+        post = get_object_or_404(Post, pk=pk)
+        if request.method == 'POST': # post 방식으로 넘겨줄려하면 (댓글을 작성하려하면)
+            comment_form = CommentForm(request.POST) # commentform을 넘겨주고
+            if comment_form.is_valid(): # valid 확인
+                comment = comment_form.save(commit=False) # 바로 commit 하지 않고 일단 save
+                comment.post = post #원글 정보 데이터베이스에 저장
+                comment.author = request.user # comment.author 작성자 확인 후
+                comment.save() # 세이브
+                return redirect(comment.get_absolute_url())
+        else:
+            return redirect(post.get_absolute_url())
+    else:
+        raise PermissionDenied
+
+def delete_comment(request, pk):
+    comment = get_object_or_404(Comment, pk=pk)
+    post = comment.post
+    if request.user.is_authenticated and request.user == comment.author:
+        comment.delete()
+        return redirect(post.get_absolute_url()) # 삭제하면 상세페이지로 이동
+    else:
+        raise PermissionDenied
+
+class PostSearch(PostList):
+    paginate_by = None
+    def get_queryset(self):
+        q = self.kwargs['q']
+        post_list = Post.objects.filter(
+            Q(title__contains=q) | Q(tags__name__contains=q) | Q(content__contains=q) | Q(author__username__icontains = q)# 타이틀 or 태그에 포스팅 내용이 들어있으면 q함수 장고 쿼리 함수
+        ).distinct() # distinct 중복된 포스트는 제외하고 하나만
+        return post_list
+    def get_context_data(self, **kwargs):
+        context = super(PostSearch, self).get_context_data()
+        q = self.kwargs['q']
+        context['search_info'] = f'Search: {q} ({self.get_queryset().count()})' # 쿼리 셋의 개수
+        return context
+
+
+
+
+
+
+
+# def index(request):
+#     posts = Post.objects.all().order_by('-pk')
+#
+#     return render(
+#         request,
+#         'blog/post_list.html',
+#         {
+#             'posts': posts,
+#         }
+#     )
+
+# def single_post_page(request, pk):
+#     post = Post.objects.get(pk=pk)
+#
+#     return render(
+#         request,
+#         'blog/post_detail.html',
+#         {
+#             'post': post,
+#         }
+#     )
+
