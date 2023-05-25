@@ -1,6 +1,8 @@
 # django_project
 [230313]장고를 사용한 웹프로젝트 
 
+시연영상  https://youtu.be/J9nyR9DAdik
+
 
 1. 메인페이지 ![리스트페이지](https://user-images.githubusercontent.com/115385678/236526752-e35b8d52-6711-43d6-b299-ab97c3856922.PNG)
 2. 디테일페이지 : ![디테일](https://user-images.githubusercontent.com/115385678/236526763-a17ae156-d1ee-40f8-a55c-292236f018c8.PNG)
